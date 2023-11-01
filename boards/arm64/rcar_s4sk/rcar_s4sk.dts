@@ -17,11 +17,9 @@
 	};
 
 	/* These aliases are provided for compatibility with samples */
-        /*
 	aliases {
 		sdhc0 = &mmc0;
 	};
-        */
 
 	ram: memory@48000000 {
 		device_type = "mmio-sram";
@@ -29,7 +27,6 @@
 	};
 };
 
-/*
 &mmc0 {
 	pinctrl-0 = <&mmc_clk &mmc_cmd &mmc_ds
 		&mmc_data0 &mmc_data1 &mmc_data2 &mmc_data3
@@ -47,4 +44,3 @@
 	mmc-hs400-1_8v;
 	non-removable;
 };
-*/
