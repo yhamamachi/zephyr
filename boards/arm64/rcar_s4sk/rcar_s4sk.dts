@@ -8,7 +8,7 @@
 /dts-v1/;
 #include <mem.h>
 #include <arm64/renesas/r8a779f.dtsi>
-#include "spider-pinctrl.dtsi"
+#include "s4sk-pinctrl.dtsi"
 
 / {
 	model = "S4SK (S4)";
