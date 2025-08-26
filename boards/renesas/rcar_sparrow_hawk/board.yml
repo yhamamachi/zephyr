@@ -1,0 +1,6 @@
+board:
+  name: rcar_sparrow_hawk
+  full_name: Sparrow Hawk
+  vendor: retronix
+  socs:
+  - name: r8a779g3

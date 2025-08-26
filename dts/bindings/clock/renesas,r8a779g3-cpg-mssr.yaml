@@ -1,0 +1,8 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas R8A779G3 SoC Clock Pulse Generator / Module Standby and Software Reset
+
+compatible: "renesas,r8a779g3-cpg-mssr"
+
+include: renesas,rcar-cpg-mssr.yaml
