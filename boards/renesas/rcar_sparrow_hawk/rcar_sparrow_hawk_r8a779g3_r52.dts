@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2023 IoT.bzh
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
+
+/dts-v1/;
+#include <arm/renesas/rcar/gen4/r8a779g3.dtsi>
+#include "rcar_sparrow_hawk_r8a779g3_r52-pinctrl.dtsi"
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+	model = "Retronix Sparrow Hawk";
+	compatible = "retronix,renesas,sparrow-hawk-cr52";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,console = &scif1;
+		zephyr,shell-uart = &scif1;
+	};
+};
+
+&scif0 {
+	pinctrl-0 = <&scif0_data_tx_default &scif0_data_rx_default>;
+	pinctrl-names = "default";
+	status = "disabled";
+};
+
+&scif1 {
+	pinctrl-0 = <&scif1_data_tx_default &scif1_data_rx_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&scif3 {
+	pinctrl-0 = <&scif3_data_tx_default &scif3_data_rx_default>;
+	pinctrl-names = "default";
+	status = "disabled";
+};
+
