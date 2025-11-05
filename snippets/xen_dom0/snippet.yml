@@ -16,3 +16,6 @@ boards:
   rcar_spider_s4/r8a779f0/a55:
     append:
       EXTRA_DTC_OVERLAY_FILE: boards/rcar_spider_s4_r8a779f0_a55.overlay
+  rcar_sparrow_hawk/r8a779g3/a76:
+    append:
+      EXTRA_DTC_OVERLAY_FILE: boards/rcar_sparrow_hawk_r8a779g3_a76.overlay
