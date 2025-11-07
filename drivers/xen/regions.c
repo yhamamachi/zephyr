@@ -9,7 +9,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/kernel.h>
-#include <zephyr/sys/arch_interface.h>
+#include <zephyr/arch/arch_interface.h>
 #include <zephyr/sys/mem_blocks.h>
 #include <zephyr/xen/generic.h>
 
