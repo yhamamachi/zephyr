@@ -24,12 +24,12 @@ TARGET_BOARD=dummy
 if [[ "$1" == "ca" ]] ;then
     TARGET_BOARD=rcar_sparrow_hawk/r8a779g3/a76
     if [[ ! -e "${HOME}/zephyr-sdk-${ZEPHYR_SDK_VER}/aarch64-zephyr-elf" ]]; then
-        west sdk install --toolchain arm-zephyr-eabi
+        west sdk install --toolchain aarch64-zephyr-elf
     fi
 elif [[ "$1" == "cr" ]]; then
     TARGET_BOARD=rcar_sparrow_hawk/r8a779g3/r52
     if [[ ! -e "${HOME}/zephyr-sdk-${ZEPHYR_SDK_VER}/arm-zephyr-eabi" ]]; then
-        west sdk install --toolchain aarch64-zephyr-elf
+        west sdk install --toolchain arm-zephyr-eabi
     fi
 else
     echo "Usage: $0 <target_core>"
