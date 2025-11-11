@@ -31,7 +31,7 @@ struct extended_regions {
  * If there is no extended regions - alternative allocation should be implemented
  * by the driver user and driver should be disabled.
  */
-BUILD_ASSERT(DT_NUM_REGS(XEN_HYP_NODE) > EXTENDED_REGIONS_IDX,
+BUILD_ASSERT(DT_NUM_REGS(XEN_HYP_NODE) >= EXTENDED_REGIONS_IDX,
 	     "No Extended regions were provided in DT");
 
 #define NOT_OVERLAPPING_BOUNDARIES(x_start, x_end, x_size, y_start, y_end, y_size) \
