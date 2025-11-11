@@ -24,6 +24,7 @@
 #include <zephyr/xen/public/grant_table.h>
 #include <zephyr/xen/public/memory.h>
 #include <zephyr/xen/public/xen.h>
+#include <zephyr/xen/regions.h>
 #include <zephyr/sys/barrier.h>
 
 #include <zephyr/init.h>
