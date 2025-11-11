@@ -81,7 +81,7 @@
 		};
 
 		cpg: clock-controller@e6150000 {
-			compatible = "renesas,r8a779f0-cpg-mssr";
+			compatible = "renesas,r8a779g3-cpg-mssr";
 			reg = <0 0xe6150000 0 0x4000>;
 			#clock-cells = <2>;
 			#power-domain-cells = <0>;
