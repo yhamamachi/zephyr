@@ -3,6 +3,20 @@
 SCRIPT_DIR=$(cd `dirname $0` && pwd)
 cd $SCRIPT_DIR
 
+Usage () {
+    echo "Usage: $0 <target_core>"
+    echo "target_core:"
+    echo "    - ca: Cortex-A76"
+    echo "    - cr: Cortex-R52"
+    exit
+}
+
+if [[ $# -ne 1 ]]; then
+    Usage; exit -1
+elif [[ "$1" != "ca" ]] && [[ "$1" != "cr" ]]; then
+    Usage ; exit -1
+fi
+
 mkdir -p _work
 cd _work
 python3 -m venv ./.venv
@@ -32,11 +46,7 @@ elif [[ "$1" == "cr" ]]; then
         west sdk install --toolchain arm-zephyr-eabi
     fi
 else
-    echo "Usage: $0 <target_core>"
-    echo "target_core:"
-    echo "    - ca: Cortex-A76"
-    echo "    - cr: Cortex-R52"
-    exit -1
+    Usage ; exit -1
 fi
 
 cd zephyr
