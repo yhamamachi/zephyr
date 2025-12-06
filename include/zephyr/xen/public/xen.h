@@ -51,6 +51,11 @@ DEFINE_XEN_GUEST_HANDLE(uint8_t);
 DEFINE_XEN_GUEST_HANDLE(uint64_t);
 DEFINE_XEN_GUEST_HANDLE(xen_pfn_t);
 DEFINE_XEN_GUEST_HANDLE(xen_ulong_t);
+// Workaround
+typedef uint8_t  uint8;
+typedef uint64_t uint64;
+DEFINE_XEN_GUEST_HANDLE(uint8);
+DEFINE_XEN_GUEST_HANDLE(uint64);
 
 /* Define a variable length array (depends on compiler). */
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
