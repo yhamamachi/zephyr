@@ -2,7 +2,7 @@
 
 SCRIPT_DIR=$(cd `dirname $0` && pwd)
 cd $SCRIPT_DIR
-
+TARGET=can_echoback
 Usage () {
     echo "Usage: $0"
     exit
@@ -10,6 +10,8 @@ Usage () {
 
 if [[ "${1:-dummy}" == "-h" ]]; then
     Usage ; exit -1
+elif [[ "${1:-dummy}" == "can_loopback" ]]; then
+    TARGET=can_loopback
 fi
 
 #mkdir -p _work
@@ -39,8 +41,5 @@ if [[ ! -e "${HOME}/zephyr-sdk-${ZEPHYR_SDK_VER}/arm-zephyr-eabi" ]]; then
     west sdk install --toolchain arm-zephyr-eabi
 fi
 
-#cd zephyr
-#west build -p always -b ${TARGET_BOARD} samples/hello_world
-west -z ../zephyr build -p always -b ${TARGET_BOARD} ./can_loopback
-#west -z ../zephyr build -p always -b ${TARGET_BOARD} ./samples/hello_world
+west -z ../zephyr build -p always -b ${TARGET_BOARD} ./${TARGET}
 
