@@ -41,7 +41,8 @@
 
 &canfd {
 	pinctrl-0 = <&canfd3_data_a_tx_default &canfd3_data_a_rx_default
-				 &canfd4_data_a_tx_default &canfd4_data_a_rx_default>;
+		     &canfd4_data_a_tx_default &canfd4_data_a_rx_default
+                     &can_clk_pin>;
 	pinctrl-names = "default";
 	status = "okay";
 

@@ -568,7 +568,7 @@ printk("  CFCC=%08x CFSTS=%08x CFPCTR=%08x\n",
 }
 
 // Inverted Empty flag -> is_data_avaiable
-#define SPIDER_CAN_RECEIVED_DATA_FLAG(dev, ch) (!(reg_read(dev, RCANFD_RFSTS(-1, ch)) & RCANFD_RFSTS_RFEMP))
+#define CAN_RECEIVED_DATA_FLAG(dev, ch) (!(reg_read(dev, RCANFD_RFSTS(-1, ch)) & RCANFD_RFSTS_RFEMP))
 
 #define TPL_CAN_ID_STANDARD_MASK (0x3FFU)
 #define TPL_CAN_ID_EXTENDED_MASK (0x3FFFFFFFU)
@@ -587,16 +587,16 @@ int rcar_canfd_poll_recv(const struct device *dev, int ch, uint32_t *id, uint8_t
 	//	return E_NOT_OK;
 	//printk("rcar_canfd_poll_recv: RSCFD0CFDFESTS = %x\n", reg_read(dev, RSCFD0CFDFESTS));
 
-uint32_t rfsts = reg_read(dev, RCANFD_RFSTS(-1, ch));
-uint32_t rfcc  = reg_read(dev, RCANFD_RFCC(-1, ch));
-printk("RX fifo%d: RFCC=%08x RFSTS=%08x (EMP=%d FLL=%d MLT=%d IF=%d)\n",
-       ch, rfcc, rfsts,
-       !!(rfsts & RCANFD_RFSTS_RFEMP),
-       !!(rfsts & RCANFD_RFSTS_RFFLL),
-       !!(rfsts & RCANFD_RFSTS_RFMLT),
-       !!(rfsts & RCANFD_RFSTS_RFIF));
+//uint32_t rfsts = reg_read(dev, RCANFD_RFSTS(-1, ch));
+//uint32_t rfcc  = reg_read(dev, RCANFD_RFCC(-1, ch));
+//printk("RX fifo%d: RFCC=%08x RFSTS=%08x (EMP=%d FLL=%d MLT=%d IF=%d)\n",
+//       ch, rfcc, rfsts,
+//       !!(rfsts & RCANFD_RFSTS_RFEMP),
+//       !!(rfsts & RCANFD_RFSTS_RFFLL),
+//       !!(rfsts & RCANFD_RFSTS_RFMLT),
+//       !!(rfsts & RCANFD_RFSTS_RFIF));
 
-	if ( !SPIDER_CAN_RECEIVED_DATA_FLAG(dev, ch))
+	if ( !CAN_RECEIVED_DATA_FLAG(dev, ch))
 		return -1;
 
 	// Retrieve the CAN ID
@@ -1125,55 +1125,29 @@ static void rcar_canfd_configure_channel_phase(const struct device *dev, uint32_
                            RCANFD_CCTR_BOM_BENTRY);
 }
 
-#define CAN_CLOCK (80000000)
+#define CAN_CLOCK (40000000)
 #define CAN_COMPUTE_PRESCALER(baud_rate, tseg1, tseg2) ((CAN_CLOCK / (baud_rate*1000 * (1 + tseg1 + tseg2))) - 1)
-#define CALC_BRP(baudrate, tseg1, tseg2) ((CAN_CLOCK/(baudrate*1000)/(1 + tseg1 + tseg2)) - 1)
+#define CALC_BRP(baudrate, tseg1, tseg2) ((CAN_CLOCK / (baudrate * 1000 * (1 + tseg1 + tseg2))) - 1)
 
-static inline uint32_t rcar_canfd_compute_data_bit_rate_cfg(uint32_t tseg1, uint32_t tseg2, uint32_t sjw, uint32_t brp)
+static inline uint32_t rcar_canfd_compute_data_bit_rate_cfg(uint32_t prop_seg, uint32_t seg1, uint32_t seg2, uint32_t sjw, uint32_t baudrate)
 {
 	uint32_t ntseg1, ntseg2, nsjw, nbrp;
-#if 0
-	if ((priv->can.ctrlmode & CAN_CTRLMODE_FD) || gpriv->info->shared_can_regs) {
-		ntseg1 = (tseg1 & (info->nom_bittiming->tseg1_max - 1)) << info->sh->ntseg1;
-		ntseg2 = (tseg2 & (info->nom_bittiming->tseg2_max - 1)) << info->sh->ntseg2;
-		nsjw = (sjw & (info->nom_bittiming->sjw_max - 1)) << info->sh->nsjw;
-		nbrp = FIELD_PREP(RCANFD_NCFG_NBRP, brp);
-	} else {
-		ntseg1 = FIELD_PREP(RCANFD_CFG_TSEG1, tseg1);
-		ntseg2 = FIELD_PREP(RCANFD_CFG_TSEG2, tseg2);
-		nsjw = FIELD_PREP(RCANFD_CFG_SJW, sjw);
-		nbrp = FIELD_PREP(RCANFD_CFG_BRP, brp);
-	}
-#else
-		ntseg1 = (tseg1-1) << 8;
-		ntseg2 = (tseg2-1) << 16;
-		nsjw = sjw << 24;
-		nbrp = brp;
-#endif
+	ntseg1 = (prop_seg + seg1 -1) << 8;
+	ntseg2 = (seg2-1) << 16;
+	nsjw = (sjw-1) << 24;
+	nbrp = CALC_BRP(baudrate, prop_seg+seg1, seg2);
+
 printk("dcfg: %08x\n", (ntseg1 | ntseg2 | nsjw | nbrp));
 	return (ntseg1 | ntseg2 | nsjw | nbrp);
 }
-static inline uint32_t rcar_canfd_compute_nominal_bit_rate_cfg(uint32_t tseg1, uint32_t tseg2, uint32_t sjw, uint32_t brp)
+static inline uint32_t rcar_canfd_compute_nominal_bit_rate_cfg(uint32_t prop_seg, uint32_t seg1, uint32_t seg2, uint32_t sjw, uint32_t baudrate)
 {
 	uint32_t ntseg1, ntseg2, nsjw, nbrp;
-#if 0
-	if ((priv->can.ctrlmode & CAN_CTRLMODE_FD) || gpriv->info->shared_can_regs) {
-		ntseg1 = (tseg1 & (info->nom_bittiming->tseg1_max - 1)) << info->sh->ntseg1;
-		ntseg2 = (tseg2 & (info->nom_bittiming->tseg2_max - 1)) << info->sh->ntseg2;
-		nsjw = (sjw & (info->nom_bittiming->sjw_max - 1)) << info->sh->nsjw;
-		nbrp = FIELD_PREP(RCANFD_NCFG_NBRP, brp);
-	} else {
-		ntseg1 = FIELD_PREP(RCANFD_CFG_TSEG1, tseg1);
-		ntseg2 = FIELD_PREP(RCANFD_CFG_TSEG2, tseg2);
-		nsjw = FIELD_PREP(RCANFD_CFG_SJW, sjw);
-		nbrp = FIELD_PREP(RCANFD_CFG_BRP, brp);
-	}
-#else
-		ntseg1 = (tseg1-1) << 17;
-		ntseg2 = (tseg2-1) << 25;
-		nsjw = sjw << 10;
-		nbrp = brp;
-#endif
+	ntseg1 = (prop_seg + seg1 - 1) << 17;
+	ntseg2 = (seg2-1) << 25;
+	nsjw = (sjw-1) << 10;
+	nbrp = CALC_BRP(baudrate, prop_seg+seg1, seg2);
+
 printk("ncfg: %08x\n", (ntseg1 | ntseg2 | nsjw | nbrp));
 	return (ntseg1 | ntseg2 | nsjw | nbrp);
 }
@@ -1183,19 +1157,20 @@ static void rcar_canfd_set_bittiming_phase(const struct device *dev, uint32_t ch
 {
 	uint32_t cancfg;
 
+	/* Nominal phase */
+	cancfg = rcar_canfd_compute_nominal_bit_rate_cfg(14, 15, 10, 5, 1000);
+        //cancfg = 0x12381000;
+	reg_write(dev, RCANFD_CCFG(ch), cancfg);
+        printf("ncfg: 0x%08x -> %08x\n", 0xe6660000 + RCANFD_CCFG(ch), reg_read(dev, RCANFD_CCFG(ch)));
+
 	/* Data phase */
-	cancfg = rcar_canfd_compute_data_bit_rate_cfg(
-		5, 2, 2,
-		CAN_COMPUTE_PRESCALER(5000, 5, 2));
+	cancfg = rcar_canfd_compute_data_bit_rate_cfg(2, 3, 2, 1, 5000);
+        //cancfg = 0x00010400;
 	reg_write(dev, DCFG_OFFSET(ch), cancfg);
+        printf("dcfg: 0x%08x -> %08x\n", 0xe6660000 + DCFG_OFFSET(ch), reg_read(dev, DCFG_OFFSET(ch)));
 
 	/* FDCFG は reset phase で clear 済み、今は据え置き */
 
-	/* Nominal phase */
-	cancfg = rcar_canfd_compute_nominal_bit_rate_cfg(
-		5, 2, 2,
-		CAN_COMPUTE_PRESCALER(1000, 5, 2));
-	reg_write(dev, RCANFD_CCFG(ch), cancfg);
 }
 
 static void rcar_canfd_configure_afl_phase(const struct device *dev, uint32_t ch)
@@ -1323,7 +1298,7 @@ static int rcar_canfd_init(const struct device *dev)
     uint32_t channel_start = 3;
     uint32_t channel_end = 5;   /* 3,4 */
     int ret;
-    bool extclk = false;
+    bool extclk = true;
     uint32_t ch;
 
     printk("rcar_canfd_init: start\n");
