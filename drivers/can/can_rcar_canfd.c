@@ -1197,78 +1197,48 @@ static void rcar_canfd_set_bittiming_phase(const struct device *dev, uint32_t ch
 		CAN_COMPUTE_PRESCALER(1000, 5, 2));
 	reg_write(dev, RCANFD_CCFG(ch), cancfg);
 }
-static void rcar_canfd_configure_tx_ch3(const struct device *dev)
-{
-    uint32_t val;
 
-    val = (0x06 << 21) | (0x01 << 8);
-    val |= (0x07 << 4);
-    reg_write(dev, RCANFD_CFCC(-1, 3, 0), val);
-
-    reg_write(dev, RCANFD_F_CFFDCSTS(-1, 3, 0), 0);
-}
-static void rcar_canfd_configure_rx_ch4(const struct device *dev)
-{
-    uint32_t val;
-
-    reg_write(dev, RCANFD_RMNB, 0);
-
-    val = (0x06 << 8);
-    val |= (0x07 << 4);
-    reg_write(dev, RCANFD_RFCC(-1, 4), val);
-}
-static void rcar_canfd_configure_afl_ch4_only(const struct device *dev)
-{
-    /* AFL write enable */
-    reg_write(dev, RCANFD_GAFLECTR, RCANFD_GAFLECTR_AFLDAE);
-
-    /* 全チャネルのルール数を一旦 0 */
-    reg_write(dev, RCANFD_GAFLCFG(0), 0);
-    reg_write(dev, RCANFD_GAFLCFG(1), 0);
-    reg_write(dev, RCANFD_GAFLCFG(2), 0);
-    reg_write(dev, RCANFD_GAFLCFG(3), 0);
-
-    /* ch4 に 1 rule */
-    reg_write(dev, RCANFD_GAFLCFG(2), (1U << 16));   /* RNC(4)=1 */
-
-    /* entry 0 = ch4 用 rule */
-    reg_write(dev, RCANFD_GAFLID(RCANFD_GEN4_GAFL_OFFSET, 0), 0);
-    reg_write(dev, RCANFD_GAFLM(RCANFD_GEN4_GAFL_OFFSET, 0), 0);
-    reg_write(dev, RCANFD_GAFLP0(RCANFD_GEN4_GAFL_OFFSET, 0), 0);
-    reg_write(dev, RCANFD_GAFLP1(RCANFD_GEN4_GAFL_OFFSET, 0), BIT(4)); /* RX FIFO4 */
-
-    /* AFL write disable */
-    reg_write(dev, RCANFD_GAFLECTR, 0);
-}
-static void rcar_canfd_configure_afl_rx_tx_phase(const struct device *dev, uint32_t ch)
+static void rcar_canfd_configure_afl_phase(const struct device *dev, uint32_t ch)
 {
 	uint32_t val;
 	static uint32_t rule_entry = 0;
+        uint32_t rule_entry_index = rule_entry % 16;
 	uint8_t n, w, wp;
+        static bool first_call_flag = false;
 
 	/* AFL write enable */
 	reg_write(dev, RCANFD_GAFLECTR, RCANFD_GAFLECTR_AFLDAE);
 
 	/* 全チャネルのルール数を一旦 0 */
-    reg_write(dev, RCANFD_GAFLCFG(0), 0);
-    reg_write(dev, RCANFD_GAFLCFG(1), 0);
-    reg_write(dev, RCANFD_GAFLCFG(2), 0);
-    reg_write(dev, RCANFD_GAFLCFG(3), 0);
-
+        if (!first_call_flag) {
+            reg_write(dev, RCANFD_GAFLCFG(0), 0);
+            reg_write(dev, RCANFD_GAFLCFG(1), 0);
+            reg_write(dev, RCANFD_GAFLCFG(2), 0);
+            reg_write(dev, RCANFD_GAFLCFG(3), 0);
+            first_call_flag = true;
+        }
 	/* one rule for channel ch */
 	n = ch;
 	w = n / 2;
 	wp = ((1 - n) + (w * 2));
 
-	reg_write(dev, RCANFD_GAFLCFG(w), 1 << (16 * wp));
-	reg_write(dev, RCANFD_GAFLID(RCANFD_GEN4_GAFL_OFFSET, rule_entry), 0);
-	reg_write(dev, RCANFD_GAFLM(RCANFD_GEN4_GAFL_OFFSET, rule_entry), 0);
-	reg_write(dev, RCANFD_GAFLP0(RCANFD_GEN4_GAFL_OFFSET, rule_entry), 0);
-	reg_write(dev, RCANFD_GAFLP1(RCANFD_GEN4_GAFL_OFFSET, rule_entry), BIT(n));
+        printf("GAFLCFG%d: %08x -> ", w, reg_read(dev, RCANFD_GAFLCFG(w)));
+	//reg_write(dev, RCANFD_GAFLCFG(w), 1 << (16 * wp));
+        rcar_canfd_set_bits(dev, RCANFD_GAFLCFG(w), BIT(16 * wp));
+	reg_write(dev, RCANFD_GAFLID(RCANFD_GEN4_GAFL_OFFSET, rule_entry_index), 0);
+	reg_write(dev, RCANFD_GAFLM(RCANFD_GEN4_GAFL_OFFSET, rule_entry_index), 0);
+	reg_write(dev, RCANFD_GAFLP0(RCANFD_GEN4_GAFL_OFFSET, rule_entry_index), 0);
+	rcar_canfd_set_bits(dev, RCANFD_GAFLP1(RCANFD_GEN4_GAFL_OFFSET, rule_entry_index), RCANFD_GAFLP1_GAFLFDP(n));
+        printf("%08x (rules=%d)\n", reg_read(dev, RCANFD_GAFLCFG(w)), rule_entry);
 	rule_entry += 1;
 
 	/* AFL write disable */
 	reg_write(dev, RCANFD_GAFLECTR, 0);
+}
+
+static void rcar_canfd_configure_rx_tx_phase(const struct device *dev, uint32_t ch)
+{
+	uint32_t val;
 
 	/* Disable RX message buffers */
 	reg_write(dev, RCANFD_RMNB, 0);
@@ -1403,15 +1373,12 @@ static int rcar_canfd_init(const struct device *dev)
         rcar_canfd_set_bittiming_phase(dev, ch);
     }
 
-    // /* 5. AFL/FIFO per-channel */
-    // for (ch = channel_start; ch < channel_end; ch++) {
-    //     rcar_canfd_configure_afl_rx_tx_phase(dev, ch);
-    // }
+    /* 5. AFL/FIFO per-channel */
+    for (ch = channel_start; ch < channel_end; ch++) {
+        rcar_canfd_configure_rx_tx_phase(dev, ch);
+        rcar_canfd_configure_afl_phase(dev, ch);
+    }
 
-/* 5 debug */
-rcar_canfd_configure_tx_ch3(dev);
-rcar_canfd_configure_rx_ch4(dev);
-rcar_canfd_configure_afl_ch4_only(dev);
 printk("GAFLCFG0=%08x GAFLCFG1=%08x GAFLCFG2=%08x GAFLCFG3=%08x\n",
        reg_read(dev, RCANFD_GAFLCFG(0)),
        reg_read(dev, RCANFD_GAFLCFG(1)),
