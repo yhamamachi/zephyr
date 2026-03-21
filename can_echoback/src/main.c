@@ -34,9 +34,12 @@ int main(void)
     while(1) {
         for (int ch = 3; ch < 5; ++ch) {
             while (!rcar_canfd_poll_recv(canfd, ch, &id, &len, rx)) {
+                // Debug log
+                /*
                 printk("RX(ch%d) id=0x%x len=%u data=", ch, id, len);
                 for (int i=0;i<len;i++) printk("%02x ", rx[i]);
                 printk("\n");
+                */
 
                 // echo back
                 id_flags = id & CAN_ID_TYPE_MASK;
