@@ -600,40 +600,6 @@ Exit:
 	return ret;
 }
 
-#define CPG_BASE        0xE6150000UL
-#define CPGWPR          0x900
-#define MSTPCR(n)       (0x110 + (n) * 4)
-#define MSTPSR(n)       (0x030 + (n) * 4)
-static inline void writel(uint32_t val, uintptr_t addr)
-{
-    *(volatile uint32_t *)addr = val;
-}
-static inline uint32_t readl(uintptr_t addr)
-{
-    return *(volatile uint32_t *)addr;
-}
-static void rcar_canfd_force_enable(void)
-{
-    uint32_t val;
-
-    /* Write protect unlock */
-    writel(0xA5A5A500, CPG_BASE + CPGWPR);
-
-    /* Clear MSTP bit (enable clock) */
-    val = readl(CPG_BASE + MSTPCR(10));
-    val &= ~(1U << 8);
-    writel(val, CPG_BASE + MSTPCR(10));
-
-    /* Wait until reflected */
-    while (readl(CPG_BASE + MSTPSR(10)) & (1U << 8))
-        ;
-
-    /* Lock again (optional) */
-    writel(0xA5A5A500 | 0x1, CPG_BASE + CPGWPR);
-}
-
-
-
 #define CANFD_NODE DT_NODELABEL(canfd)
 
 /* “clock-names のトークン”を渡して enable するマクロ */
@@ -666,11 +632,6 @@ static int rcar_canfd_enable_clocks(const struct device *dev)
     /* 必須 */
     ENABLE_CPG_CLOCK(fck);
     ENABLE_CPG_CLOCK(canfd);
-
-    /* Optional: clock-names に存在するなら enable */
-//#if DT_CLOCKS_HAS_NAME(CANFD_NODE, clk_ram)
-//    ENABLE_CPG_CLOCK(clk_ram);
-//#endif
 
 #if DT_CLOCKS_HAS_NAME(CANFD_NODE, pclk)
     ENABLE_CPG_CLOCK(pclk);
@@ -828,58 +789,6 @@ static int rcar_canfd_ch_transition(const struct device *dev, int ch)
     return 0;
 }
 
-
-#define CPG_BASE        0xE6150000UL
-#define CPGWPR          0x0900
-
-/* SRCR/SRSTCLR のオフセットは SoC の CPG 仕様に依存します。
- * ここは “決め打ち” 部分なので、もし手元のLinuxソースに定義があればそれに合わせてください。
- *
- * まず試す候補（多くのR-Car世代で似た配置）：
- */
-#define SRCR_BASE       0x0A00  /* reset assert */
-#define SRSTCLR_BASE    0x0A80  /* reset deassert */
-
-/* bankごとに 4byte stride */
-#define SRCR(n)         (SRCR_BASE + 0x04 * (n))
-#define SRSTCLR(n)      (SRSTCLR_BASE + 0x04 * (n))
-
-static inline void cpg_wpr_unlock(void)
-{
-    writel(0xA5A5A500, CPG_BASE + CPGWPR);
-}
-
-static inline void cpg_wpr_lock(void)
-{
-    writel(0xA5A5A501, CPG_BASE + CPGWPR);
-}
-
-static int rcar_cpg_module_reset_toggle(unsigned int module_id)
-{
-    unsigned int bank = module_id / 32U;
-    unsigned int bit  = module_id % 32U;
-    uint32_t mask = 1U << bit;
-
-    cpg_wpr_unlock();
-
-    /* assert reset */
-    writel(mask, CPG_BASE + SRCR(bank));
-    k_busy_wait(10);
-
-    /* deassert reset */
-    writel(mask, CPG_BASE + SRSTCLR(bank));
-    k_busy_wait(10);
-
-    cpg_wpr_lock();
-
-    return 0;
-}
-
-/* CANFD is MOD 328 per your Linux DTS */
-static int rcar_canfd_apply_reset(void)
-{
-    return rcar_cpg_module_reset_toggle(328);
-}
 static inline void rcar_canfd_set_bits(const struct device *dev, uint32_t reg, uint32_t mask)
 {
 	uint32_t v = reg_read(dev, reg);
@@ -1274,12 +1183,6 @@ static int rcar_canfd_init(const struct device *dev)
     ret = rcar_canfd_enable_clocks(dev);
     if (ret) {
         printk("Error: rcar_canfd_enable_clocks(ret = %d)\n", ret);
-        return ret;
-    }
-
-    ret = rcar_canfd_apply_reset();
-    if (ret) {
-        printk("Error: rcar_canfd_apply_reset(ret = %d)\n", ret);
         return ret;
     }
 
