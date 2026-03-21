@@ -1082,22 +1082,57 @@ printk("ncfg: %08x\n", (ntseg1 | ntseg2 | nsjw | nbrp));
 	return (ntseg1 | ntseg2 | nsjw | nbrp);
 }
 
+void rcar_canfd_set_nominal_bit_rate_cfg(const struct device *dev, uint32_t ch, uint32_t prop_seg, uint32_t seg1, uint32_t seg2, uint32_t sjw, uint32_t baudrate)
+{
+	uint32_t cancfg;
+	cancfg = rcar_canfd_compute_nominal_bit_rate_cfg(prop_seg, seg1, seg2, sjw, baudrate);
+	reg_write(dev, RCANFD_CCFG(ch), cancfg);
+}
+
+void rcar_canfd_set_data_bit_rate_cfg(const struct device *dev, uint32_t ch, uint32_t prop_seg, uint32_t seg1, uint32_t seg2, uint32_t sjw, uint32_t baudrate)
+{
+	uint32_t cancfg;
+	cancfg = rcar_canfd_compute_data_bit_rate_cfg(prop_seg, seg1, seg2, sjw, baudrate);
+	reg_write(dev, DCFG_OFFSET(ch), cancfg);
+        printf("dcfg: 0x%08x -> %08x\n", 0xe6660000 + DCFG_OFFSET(ch), reg_read(dev, DCFG_OFFSET(ch)));
+}
+
 
 static void rcar_canfd_set_bittiming_phase(const struct device *dev, uint32_t ch)
 {
-	uint32_t cancfg;
+    const uint32_t bitrate  = 500; // kbps
+    const uint32_t dbitrate = 5000; // kbps
 
-	/* Nominal phase */
-	cancfg = rcar_canfd_compute_nominal_bit_rate_cfg(14, 15, 10, 5, 1000);
-        //cancfg = 0x12381000;
-	reg_write(dev, RCANFD_CCFG(ch), cancfg);
-        printf("ncfg: 0x%08x -> %08x\n", 0xe6660000 + RCANFD_CCFG(ch), reg_read(dev, RCANFD_CCFG(ch)));
+    // setup CAN device config
+    // config value is gotten from linux:
+    //    ex.) ip -d link show can0
+    //        tq 50 prop-seg 69 phase-seg1 70 phase-seg2 20 sjw 10 brp 2
+    //        dtq 25 dprop-seg 2 dphase-seg1 3 dphase-seg2 2 dsjw 1 dbrp 1
+    switch (bitrate) {
+    case 1000: // 1000kbps = 1Mbps
+        rcar_canfd_set_nominal_bit_rate_cfg(dev, ch, 14, 15, 10, 5, bitrate); break;
+    case 500: // 500kbps
+        rcar_canfd_set_nominal_bit_rate_cfg(dev, ch, 34, 35, 10, 5, bitrate); break;
+    case 250: // 250kbps
+        rcar_canfd_set_nominal_bit_rate_cfg(dev, ch, 69, 70, 20, 10, bitrate); break;
+    case 125: // 125kbps
+        rcar_canfd_set_nominal_bit_rate_cfg(dev, ch, 69, 70, 20, 10, bitrate); break;
+    default: // Same as 1Mbps
+        rcar_canfd_set_nominal_bit_rate_cfg(dev, ch, 14, 15, 10, 5, bitrate); break;
+    }
 
-	/* Data phase */
-	cancfg = rcar_canfd_compute_data_bit_rate_cfg(2, 3, 2, 1, 5000);
-        //cancfg = 0x00010400;
-	reg_write(dev, DCFG_OFFSET(ch), cancfg);
-        printf("dcfg: 0x%08x -> %08x\n", 0xe6660000 + DCFG_OFFSET(ch), reg_read(dev, DCFG_OFFSET(ch)));
+    switch (dbitrate) {
+    case 8000: // 8000kbps = 8Mbps
+        rcar_canfd_set_data_bit_rate_cfg(dev, ch, 1, 1, 2, 1, dbitrate); break;
+    case 5000: // 5000kbps = 5Mbps
+        rcar_canfd_set_data_bit_rate_cfg(dev, ch, 2, 3, 2, 1, dbitrate); break;
+    case 4000: // 4000kbps = 4Mbps
+        rcar_canfd_set_data_bit_rate_cfg(dev, ch, 3, 3, 3, 1, dbitrate); break;
+    case 2000: // 2000kbps = 2Mbps
+        rcar_canfd_set_data_bit_rate_cfg(dev, ch, 7, 7, 5, 2, dbitrate); break;
+    default: // Same as 5Mbps
+        rcar_canfd_set_data_bit_rate_cfg(dev, ch, 2, 3, 2, 1, dbitrate); break;
+    }
 }
 
 static void rcar_canfd_configure_afl_phase(const struct device *dev, uint32_t ch)
