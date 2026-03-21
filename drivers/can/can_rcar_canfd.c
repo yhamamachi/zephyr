@@ -459,56 +459,61 @@ static uint32_t get_dlc_from_length(uint32_t length, uint32_t *adjusted_length){
 	return length_code_table[length].dlc;
 }
 
+uint32_t get_length_from_dlc(uint32_t dlc)
+{
+	static uint32_t length[16] =
+	{
+		 0,  1,  2,  3,  4,  5,  6,  7,
+		 8, 12, 16, 20, 24, 32, 48, 64
+	};
+
+	if (dlc > 0x0F)
+		return 0;
+
+	return length[dlc];
+}
+
+#define CAN_ID_STANDARD_MASK                   (0x7FFU)
+#define CAN_ID_EXTENDED_MASK                   (0x1FFFFFFFU)
+#define CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE (8)
+#define CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE      (64)
+
+#define CAN_ID_TYPE_MASK        (0xC0000000U) // (0x03 << 30)
+#define CAN_ID_TYPE_STANDARD    (0x00U << 30)
+#define CAN_ID_TYPE_FD_STANDARD (0x01U << 30)
+#define CAN_ID_TYPE_EXTENDED    (0x02U << 30)
+#define CAN_ID_TYPE_FD_EXTENDED (0x03U << 30)
+
 int rcar_canfd_send(const struct device *dev, int ch, uint32_t id, const uint8_t *data, uint8_t len)
 {
 	int is_can_fd;
 	volatile uint8_t *src, *dest;
 	uint32_t i, val, adjusted_payload_length;
-	//ch=0;
-#if 1
-printk("CAN_SEND: FRAME: %03x: ", id);
-for (i=0; i<len; ++i) {
-	printk("%02x ", data[i]);
-}
-printk("\n");
-#endif
-	// If the FIFO is full, wait for a transmission to finish to get a free FIFO slot
-	// while (ctrl_base_address->CFDFFSTS.BIT.CF0FLL); // Linuxでは使っていないっぽい？
+	uint32_t id_flags, id_without_flags;;
 
-	// Cache the protocol type of the frame TODO: 
-	//val = pdu_info->id & TPL_CAN_ID_TYPE_MASK;
-	val = id;
-	//if ((val == TPL_CAN_ID_TYPE_FD_STANDARD) || (val == TPL_CAN_ID_TYPE_FD_EXTENDED))
+	// Cache the protocol type of the frame
+	id_flags = id & CAN_ID_TYPE_MASK;
+	if ((id_flags == CAN_ID_TYPE_FD_STANDARD) || (id_flags == CAN_ID_TYPE_FD_EXTENDED))
+		is_can_fd = 1;
+	else
 		is_can_fd = 0;
-	//else
-	//	is_can_fd = 0;
 
-	// Set the CAN ID
-	//if ((val == TPL_CAN_ID_TYPE_EXTENDED) || (val == TPL_CAN_ID_TYPE_FD_EXTENDED))
-	//	val = (pdu_info->id & TPL_CAN_ID_EXTENDED_MASK) | (1 << 31); // Tell this is an extended ID frame
-	//else
-	//	val = pdu_info->id & TPL_CAN_ID_STANDARD_MASK;
-	//ctrl_base_address->CFDCFID0.UINT32 = val;
-	reg_write(dev, RCANFD_F_CFID(-1, ch, 0), val);
+	reg_write(dev, RCANFD_F_CFID(-1, ch, 0), id);
 
 	// Set the payload size
-	//val = tpl_can_get_dlc_from_length(pdu_info->length, &adjusted_payload_length);
 	val = get_dlc_from_length(len, &adjusted_payload_length);
-	//ctrl_base_a.ddress->CFDCFPTR0.UINT32 = val << 28;
 	reg_write(dev, RCANFD_F_CFPTR(-1, ch, 0), RCANFD_CFPTR_CFDLC(val));
 
 	// Set the frame payload
-	//if (!is_can_fd && pdu_info->length > TPL_CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE)
-	//	return E_NOT_OK;
-	//if (pdu_info->length > TPL_CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE)
-	//	return E_NOT_OK;
-	//src = pdu_info->sdu;
+	if (!is_can_fd && len > CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE)
+		return -1;
+	if (len > CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE)
+		return -1;
+
 	src = data;
-	//dest = ctrl_base_address->CFDCFDF0_0.UINT8;
 	dest = (uint8_t *)reg_addr(dev, RCANFD_F_CFDF(-1, ch, 0, 0));
 	// Use a for loop instead of memcpy() to make sure the buffer registers are accessed one byte at a time
 	// Using memcpy() triggers a data abort exception for a 7-byte CAN payload
-	//for (i = 0; i < pdu_info->length; i++)
 	for (i = 0; i < len; i++)
 	{
 		*dest = *src;
@@ -532,37 +537,8 @@ printk("\n");
 	//		// TODO add BRS support
 	//	}
 	}
-	//ctrl_base_address->CFDCFFDCSTS0.UINT32 = val;
 	reg_write(dev, RCANFD_F_CFFDCSTS(-1, ch, 0), val);
-
-
-printk("CH%d TX regs before send:\n", ch);
-printk("  CCTR=%08x CSTS=%08x CERFL=%08x\n",
-       reg_read(dev, RCANFD_CCTR(ch)),
-       reg_read(dev, RCANFD_CSTS(ch)),
-       reg_read(dev, RCANFD_CERFL(ch)));
-printk("  CFCC=%08x CFSTS=%08x CFPCTR=%08x\n",
-       reg_read(dev, RCANFD_CFCC(-1, ch, 0)),
-       reg_read(dev, RCANFD_CFSTS(-1, ch, 0)),
-       reg_read(dev, RCANFD_CFPCTR(-1, ch, 0)));
-printk("  CFID=%08x CFPTR=%08x CFFDCSTS=%08x\n",
-       reg_read(dev, RCANFD_F_CFID(-1, ch, 0)),
-       reg_read(dev, RCANFD_F_CFPTR(-1, ch, 0)),
-       reg_read(dev, RCANFD_F_CFFDCSTS(-1, ch, 0)));
-
-reg_write(dev, RCANFD_CFPCTR(-1, ch, 0), 0x000000FF);
-
-k_busy_wait(100);
-
-printk("CH%d TX regs after send:\n", ch);
-printk("  CCTR=%08x CSTS=%08x CERFL=%08x\n",
-       reg_read(dev, RCANFD_CCTR(ch)),
-       reg_read(dev, RCANFD_CSTS(ch)),
-       reg_read(dev, RCANFD_CERFL(ch)));
-printk("  CFCC=%08x CFSTS=%08x CFPCTR=%08x\n",
-       reg_read(dev, RCANFD_CFCC(-1, ch, 0)),
-       reg_read(dev, RCANFD_CFSTS(-1, ch, 0)),
-       reg_read(dev, RCANFD_CFPCTR(-1, ch, 0)));
+	reg_write(dev, RCANFD_CFPCTR(-1, ch, 0), 0x000000FF);
 
 	return 0;
 }
@@ -570,18 +546,12 @@ printk("  CFCC=%08x CFSTS=%08x CFPCTR=%08x\n",
 // Inverted Empty flag -> is_data_avaiable
 #define CAN_RECEIVED_DATA_FLAG(dev, ch) (!(reg_read(dev, RCANFD_RFSTS(-1, ch)) & RCANFD_RFSTS_RFEMP))
 
-#define CAN_ID_STANDARD_MASK (0x3FFU)
-#define CAN_ID_EXTENDED_MASK (0x3FFFFFFFU)
-#define CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE (8)
-#define CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE (64)
-
 int rcar_canfd_poll_recv(const struct device *dev, int ch, uint32_t *id, uint8_t *len, uint8_t *data)
 {
-	int i, is_extended_id;
+	int i, is_extended_id, is_can_fd;
 	volatile uint8_t *src, *dest;
 	int ret = 0;
 	uint32_t val;
-	const bool use_canfd = true;
 
 	// Do not block if no data are available
 	if ( !CAN_RECEIVED_DATA_FLAG(dev, ch))
@@ -590,20 +560,21 @@ int rcar_canfd_poll_recv(const struct device *dev, int ch, uint32_t *id, uint8_t
 	// Retrieve the CAN ID
 	val = reg_read(dev, RCANFD_F_RFID(-1, ch));
 	if (val & RCANFD_RFID_RFIDE)
-	{
 		is_extended_id = 1;
-		val &= CAN_ID_EXTENDED_MASK;
-	}
 	else
-	{
 		is_extended_id = 0;
-		val &= CAN_ID_STANDARD_MASK;
-	}
-	*id = val;
+
+	if (reg_read(dev, RCANFD_F_RFFDSTS(-1, ch)) & RCANFD_RFFDSTS_RFFDF )
+		is_can_fd = 1;
+	else
+		is_can_fd = 0;
+
+	*id = val | (is_extended_id <<31) | (is_can_fd << 30);
 
 	// Retrieve the frame length
-	*len = RCANFD_RFPTR_RFDLC(reg_read(dev, RCANFD_F_RFPTR(-1, ch)));
-	if (!use_canfd && *len > CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE)
+	val = RCANFD_RFPTR_RFDLC(reg_read(dev, RCANFD_F_RFPTR(-1, ch)));
+	*len = get_length_from_dlc(val);
+	if (!is_can_fd && *len > CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE)
 		goto Exit;
 	if (*len > CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE)
 		goto Exit;
@@ -1127,9 +1098,6 @@ static void rcar_canfd_set_bittiming_phase(const struct device *dev, uint32_t ch
         //cancfg = 0x00010400;
 	reg_write(dev, DCFG_OFFSET(ch), cancfg);
         printf("dcfg: 0x%08x -> %08x\n", 0xe6660000 + DCFG_OFFSET(ch), reg_read(dev, DCFG_OFFSET(ch)));
-
-	/* FDCFG は reset phase で clear 済み、今は据え置き */
-
 }
 
 static void rcar_canfd_configure_afl_phase(const struct device *dev, uint32_t ch)
