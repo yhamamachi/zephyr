@@ -570,70 +570,49 @@ printk("  CFCC=%08x CFSTS=%08x CFPCTR=%08x\n",
 // Inverted Empty flag -> is_data_avaiable
 #define CAN_RECEIVED_DATA_FLAG(dev, ch) (!(reg_read(dev, RCANFD_RFSTS(-1, ch)) & RCANFD_RFSTS_RFEMP))
 
-#define TPL_CAN_ID_STANDARD_MASK (0x3FFU)
-#define TPL_CAN_ID_EXTENDED_MASK (0x3FFFFFFFU)
-// #define CH3_ENABLE
+#define CAN_ID_STANDARD_MASK (0x3FFU)
+#define CAN_ID_EXTENDED_MASK (0x3FFFFFFFU)
+#define CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE (8)
+#define CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE (64)
+
 int rcar_canfd_poll_recv(const struct device *dev, int ch, uint32_t *id, uint8_t *len, uint8_t *data)
 {
-	//volatile struct __tag5579 *ctrl_base_address = (volatile struct __tag5579 *) ctrl->base_address;
 	int i, is_extended_id;
 	volatile uint8_t *src, *dest;
 	int ret = 0;
-	//struct spider_can_priv *priv = ctrl->priv;
 	uint32_t val;
+	const bool use_canfd = true;
 
 	// Do not block if no data are available
-	//if (!SPIDER_CAN_RECEIVED_DATA_FLAG(ctrl))
-	//	return E_NOT_OK;
-	//printk("rcar_canfd_poll_recv: RSCFD0CFDFESTS = %x\n", reg_read(dev, RSCFD0CFDFESTS));
-
-//uint32_t rfsts = reg_read(dev, RCANFD_RFSTS(-1, ch));
-//uint32_t rfcc  = reg_read(dev, RCANFD_RFCC(-1, ch));
-//printk("RX fifo%d: RFCC=%08x RFSTS=%08x (EMP=%d FLL=%d MLT=%d IF=%d)\n",
-//       ch, rfcc, rfsts,
-//       !!(rfsts & RCANFD_RFSTS_RFEMP),
-//       !!(rfsts & RCANFD_RFSTS_RFFLL),
-//       !!(rfsts & RCANFD_RFSTS_RFMLT),
-//       !!(rfsts & RCANFD_RFSTS_RFIF));
-
 	if ( !CAN_RECEIVED_DATA_FLAG(dev, ch))
 		return -1;
 
 	// Retrieve the CAN ID
-	//val = ctrl_base_address->CFDRFID0.UINT32;
 	val = reg_read(dev, RCANFD_F_RFID(-1, ch));
-	if (val & 0x80000000)
+	if (val & RCANFD_RFID_RFIDE)
 	{
 		is_extended_id = 1;
-		val &= TPL_CAN_ID_EXTENDED_MASK;
+		val &= CAN_ID_EXTENDED_MASK;
 	}
 	else
 	{
 		is_extended_id = 0;
-		val &= TPL_CAN_ID_STANDARD_MASK;
+		val &= CAN_ID_STANDARD_MASK;
 	}
-	// pdu_info->id = val;
 	*id = val;
-	printk("id = %08x\n", val);
 
 	// Retrieve the frame length
-	//val = ctrl_base_address->CFDRFPTR0.UINT32 >> 28;
-	val = RCANFD_RFPTR_RFDLC(reg_read(dev, RCANFD_F_RFPTR(-1, ch)));
-	//pdu_info->length = tpl_can_get_length_from_dlc(val);
-	*len = val;
-	//if (!priv->is_can_fd_enabled && pdu_info->length > TPL_CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE)
-	//	goto Exit;
-	//if (pdu_info->length > TPL_CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE)
-	//	goto Exit;
+	*len = RCANFD_RFPTR_RFDLC(reg_read(dev, RCANFD_F_RFPTR(-1, ch)));
+	if (!use_canfd && *len > CAN_CLASSIC_FRAME_MAXIMUM_PAYLOAD_SIZE)
+		goto Exit;
+	if (*len > CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE)
+		goto Exit;
 
 	// Retrieve the frame payload
-	//src = ctrl_base_address->CFDRFDF0_0.UINT8;
 	src = (uint8_t *)reg_addr(dev, RCANFD_F_RFDF(-1, ch, 0));
-	//dest = pdu_info->sdu;
 	dest = data;
 	// Use a for loop instead of memcpy() to make sure the buffer registers are accessed one byte at a time
 	// Using memcpy() triggers a data abort exception for a 7-byte CAN payload
-	//for (i = 0; i < pdu_info->length; i++)
 	for (i = 0; i < *len; i++)
 	{
 		*dest = *src;
@@ -641,30 +620,10 @@ int rcar_canfd_poll_recv(const struct device *dev, int ch, uint32_t *id, uint8_t
 		dest++;
 	}
 
-	// Tell userspace about the type of the frame that has been received
-	// Is this CAN-FD ?
-	//if (ctrl_base_address->CFDRFFDSTS0.BIT.RFFDF)
-	//{
-	//	if (is_extended_id)
-	//		pdu_info->id |= TPL_CAN_ID_TYPE_FD_EXTENDED;
-	//	else
-	//		pdu_info->id |= TPL_CAN_ID_TYPE_FD_STANDARD;
-	//}
-	// So it is CAN classic
-	//else
-	//{
-	//	if (is_extended_id)
-	//		pdu_info->id |= TPL_CAN_ID_TYPE_EXTENDED;
-	//	else
-	//		pdu_info->id |= TPL_CAN_ID_TYPE_STANDARD;
-	//}
-
-	//ret = E_OK;
 	ret = 0;
 
 Exit:
 	// Increment the FIFO read pointer to get access to the next received frame
-	//ctrl_base_address->CFDRFPCTR0.UINT32 = 0x000000FF;
 	reg_write(dev, RCANFD_RFPCTR(-1, ch), 0x000000FF);
 
 	return ret;
