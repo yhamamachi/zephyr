@@ -33,7 +33,7 @@ if [[ ! -e ./.west ]]; then
     west packages pip --install
 fi
 
-ZEPHYR_SDK_VER=0.17.4
+ZEPHYR_SDK_VER=0.16.9
 TARGET_BOARD=sparrowhawk_rcar_v4h/r8a779g0/a76
 #TARGET_BOARD=xenvm/xenvm/gicv3
 #TARGET_BOARD=sparrow-hawk-xenvm/r8a779g0/r52
