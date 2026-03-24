@@ -21,17 +21,15 @@ if [[ ! -e ./.venv ]]; then
     source ./.venv/bin/activate
     pip install west
     pip install -U pip
-
-    CLONE_OPT_FLAG=""
-    if [[ "$(west help init | grep CLONE_OPT)" != "" ]]; then
-        CLONE_OPT_FLAG=" -o--depth=1 "
-    fi
-    west init ${CLONE_OPT_FLAG} -m ./
-    west update zephyr cmsis
-    west zephyr-export
-    west packages pip --install
 else
     source ./.venv/bin/activate
+fi
+
+if [[ ! -e ./.west ]]; then
+    west init -l ./
+    west update cmsis
+    west zephyr-export
+    west packages pip --install
 fi
 
 ZEPHYR_SDK_VER=0.17.4
