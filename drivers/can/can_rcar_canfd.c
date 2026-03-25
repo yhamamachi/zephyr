@@ -405,29 +405,32 @@ struct rcar_canfd_f_c {
 #define RSCFD0CFDFESTS			0x2a0
 #define RCANFD_CFDCFCCE(d)		(0x180 + 0x004 * d)
 
+/* Required by DEVICE_MMIO_NAMED_* macros */
+#define DEV_CFG(_dev) \
+	((const struct rcar_canfd_config *)(_dev)->config)
+#define DEV_DATA(_dev) ((struct rcar_canfd_data *)(_dev)->data)
+
 struct rcar_canfd_config {
-    mm_reg_t base;
     const struct pinctrl_dev_config *pincfg;
+    DEVICE_MMIO_NAMED_ROM(mmio);
 };
 
 struct rcar_canfd_data {
     /* 必要なら状態保持 */
+    DEVICE_MMIO_NAMED_RAM(mmio);
 };
 
 static inline uint32_t reg_read(const struct device *dev, uint32_t off)
 {
-    const struct rcar_canfd_config *cfg = dev->config;
-    return sys_read32(cfg->base + off);
+    return sys_read32(DEVICE_MMIO_NAMED_GET(dev, mmio) + off);
 }
 static inline void reg_write(const struct device *dev, uint32_t off, uint32_t v)
 {
-    const struct rcar_canfd_config *cfg = dev->config;
-    sys_write32(v, cfg->base + off);
+    sys_write32(v, DEVICE_MMIO_NAMED_GET(dev, mmio) + off);
 }
 static inline uintptr_t reg_addr(const struct device *dev, uint32_t off)
 {
-    const struct rcar_canfd_config *cfg = dev->config;
-    return (uintptr_t)(cfg->base + off);
+    return (uintptr_t)(DEVICE_MMIO_NAMED_GET(dev, mmio) + off);
 }
 
 #define CAN_FD_FRAME_MAXIMUM_PAYLOAD_SIZE		64
@@ -1174,11 +1177,16 @@ static int rcar_canfd_init(const struct device *dev)
 
     printk("rcar_canfd_init: start\n");
 
+    DEVICE_MMIO_NAMED_MAP(dev, mmio, 0);
+    printk("mmio=%p\n", (void *)DEVICE_MMIO_NAMED_GET(dev, mmio));
+
+#ifndef CONFIG_XEN
     ret = pinctrl_apply_state(config->pincfg, PINCTRL_STATE_DEFAULT);
     if (ret < 0) {
         printk("pinctrl apply failed: %d\n", ret);
         return ret;
     }
+#endif
 
     ret = rcar_canfd_enable_clocks(dev);
     if (ret) {
@@ -1247,7 +1255,6 @@ printk("GAFL0: ID=%08x M=%08x P0=%08x P1=%08x\n",
         }
     }
 
-    printk("base=%p\n", (void *)config->base);
     return 0;
 }
 
@@ -1255,7 +1262,7 @@ printk("GAFL0: ID=%08x M=%08x P0=%08x P1=%08x\n",
     static struct rcar_canfd_data rcar_canfd_data_##inst;          \
     PINCTRL_DT_INST_DEFINE(inst);                                   \
     static const struct rcar_canfd_config rcar_canfd_cfg_##inst = {\
-        .base = DT_INST_REG_ADDR(inst),                            \
+        DEVICE_MMIO_NAMED_ROM_INIT(mmio, DT_DRV_INST(inst)),       \
         .pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(inst),            \
     };                                                             \
     DEVICE_DT_INST_DEFINE(inst, rcar_canfd_init, NULL,             \
