@@ -44,4 +44,5 @@ fi
 
 west build -p always -b ${TARGET_BOARD} -S sparrowhawk_rcar_v4h_xen_domd ./${TARGET}
 #west build -p always -b ${TARGET_BOARD} ./${TARGET}
+dtc -I dts -O dtb build/zephyr/zephyr.dts -o build/zephyr/zephyr.dtb
 
