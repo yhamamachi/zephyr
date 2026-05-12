@@ -13,6 +13,15 @@
 extern int rcar_canfd_send(const struct device *dev, int ch, uint32_t id, const uint8_t *data, uint8_t len);
 extern int rcar_canfd_poll_recv(const struct device *dev, int ch, uint32_t *id, uint8_t *len, uint8_t *data);
 
+#include <zephyr/drivers/gpio.h>
+/* The devicetree node identifier for the "led0" alias. */
+#define LED0_NODE DT_ALIAS(led0)
+/*
+ * A build error on this line means your board is unsupported.
+ * See the sample documentation for information on how to fix this.
+ */
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+
 int main(void)
 {
     printk("Hello from can_echoback sample\n");
@@ -21,6 +30,11 @@ int main(void)
         printk("canfd not ready\n");
         return 0;
     }
+
+    if (!gpio_is_ready_dt(&led)) {
+        return 0;
+    }
+    gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
 
     uint8_t tx[64] = {0};
     uint8_t rx[64];
@@ -54,6 +68,8 @@ int main(void)
                     tx[i] = rx[i] + 1;
                 }
                 rcar_canfd_send(canfd, ch, (id_flags | id_without_flags), tx, len);
+
+                gpio_pin_toggle_dt(&led);
             }
         }
     }
