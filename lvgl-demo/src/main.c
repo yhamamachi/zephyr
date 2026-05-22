@@ -91,12 +91,12 @@ void draw_frame(lv_obj_t* canvas) {
     lv_draw_arc_dsc_t arc_dsc;
     lv_draw_arc_dsc_init(&arc_dsc);
     arc_dsc.color = lv_color_make(50, 100, 255);
-    arc_dsc.center.x = 233;
-    arc_dsc.center.y = 252;
+    arc_dsc.center.x = 235;
+    arc_dsc.center.y = 257;
     arc_dsc.width = 40;
     arc_dsc.radius = 138;
     arc_dsc.start_angle = 135;
-    arc_dsc.end_angle = 135+280.0/200.0*speed;
+    arc_dsc.end_angle = 135+270.0*speed/200;
     arc_dsc.opa = LV_OPA_50;
     lv_draw_arc(&layer, &arc_dsc);
     lv_canvas_finish_layer(canvas, &layer);
