@@ -37,7 +37,7 @@ ZEPHYR_SDK_VER=1.0.1
 #TARGET_BOARD=rcar_sparrow_hawk/r8a779g3/r52
 #TARGET_BOARD=sparrowhawk_rcar_v4h/r8a779g0/r52
 TARGET_BOARD=native_sim/native/64
-if [[ ! -e "${HOME}/zephyr-sdk-${ZEPHYR_SDK_VER}/arm-zephyr-eabi" ]]; then
+if [[ ! -e "${HOME}/zephyr-sdk-${ZEPHYR_SDK_VER}/gnu/arm-zephyr-eabi" ]]; then
     west sdk install --gnu-toolchain arm-zephyr-eabi
 fi
 
