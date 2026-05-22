@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2026 Muhammad Waleed Badar
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "native_sim.overlay"
+
+
+&sdl_dc {
+	compatible = "zephyr,sdl-dc";
+	height = <720>;
+	width = <1280>;
+};
+
